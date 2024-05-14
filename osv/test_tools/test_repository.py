@@ -36,115 +36,84 @@ class TestRepository:
   _author = pygit2.Signature('John Smith', 'johnSmith@example.com')
   _commiter = pygit2.Signature('John Smith', 'johnSmith@example.com')
 
-  _initial_commit = None
-
   def __init__(self, name: str, debug: bool = False):
+    self.repo_path=f"osv/testdata/test_repositories/{name}"
     self.debug = debug
     self.name = name
     self.introduced = []
     self.fixed = []
     self.last_affected = []
     self.limit = []
-
     #delete the repository if it already exists
-    if os.path.exists(f"osv/testdata/test_repositories/{name}"):
-      shutil.rmtree(f"osv/testdata/test_repositories/{name}")
+    if os.path.exists(self.repo_path):
+      self.clean()
     #initialize the repository
-    self.repo = pygit2.init_repository(
-        f"osv/testdata/test_repositories/{name}", bare=False)
-    #empty initial commit useful for the creation of the repository with  a file with a random name
-    with open(f"osv/testdata/test_repositories/{name}/{ str(uuid.uuid1())}", "w") as f:
+    self.repo:pygit2._pygit2.Repository = pygit2.init_repository(
+        self.repo_path, bare=False)
+    #create an initial commit
+    parent=[]
+    self.add_commit(parent)
+    
+  def add_commit(self,parents=None):
+    if parents is None:
+      parents=[self.get_head_hex()]
+    with open(f"{self.repo_path}/{ str(uuid.uuid1())}", "w") as f:
       f.write("")
     index = self.repo.index
     index.add_all()
     tree = index.write_tree()
-    self._initial_commit = self.repo.create_commit('refs/heads/main',
-                                                   self._author, self._commiter,
-                                                   "message", tree, [])
-    #create a branch for the initial commit and the reference to the remote
-    self.create_branch(f"branch_{self._initial_commit.hex}",
-                       self._initial_commit)
-    #put the initial commit in the main branch
-    self.repo.references.create("refs/remotes/origin/main",
-                                self._initial_commit)
+    index.write()
+    self.repo.create_commit('HEAD',self._author, self._commiter, "message", tree, parents)
+    return self.get_head_hex()
+  
+  def get_head_hex(self):
+    return self.get_head().hex
 
-  def create_branch(self, name: str, commit: pygit2.Oid):
-    self.repo.references.create(f'refs/heads/{name}', commit)
-    self.repo.references.create(f'refs/remotes/origin/{name}', commit)
+  def get_head(self):
+    return self.repo.revparse_single('HEAD')
+  
+  def checkout(self,branchname):
+    branch = self.repo.lookup_branch(branchname)
+    ref = self.repo.lookup_reference(branch.name)
+    self.repo.checkout(ref)
+    
+  def create_branch_if_needed_and_checkout(self,branchname):
+    if not self.repo.branches.get(branchname):
+      self.repo.create_branch(branchname,self.get_head())
+    self.checkout(branchname)
 
-  def add_empty_commit(
-      self,
-      parents: list[pygit2.Oid] = None,
-      vulnerability: VulnerabilityType = VulnerabilityType.NONE,
-      message: str = "Empty") -> pygit2.Oid:
-    """
-    Adds a empty commit to the repository, tags it with the vulnerability 
-    type and adds it to the vulnerability list if specified 
-    """
+  def create_remote_branch(self):
+    for branch_name in self.repo.branches:
+      branch=self.repo.branches.get(branch_name)
+      self.repo.references.create(f'refs/remotes/origin/{branch_name}', branch.raw_target)
 
-    with open(f"osv/testdata/test_repositories/{self.name}/{ str(uuid.uuid1())}", "w") as f:
-      f.write("")
-    index = self.repo.index
-    index.add_all()
-    tree = index.write_tree()
-    self._author = pygit2.Signature(
-        str(uuid.uuid1()), 'johnSmith@example.com'
-    )  #using a random uuid to avoid commits being the same
-    commit = None
-
-    if not parents or len(parents) == 0:
-      self.repo.create_branch(
-          'branch_temp', self.repo.revparse_single(self._initial_commit.hex))
-      commit = self.repo.create_commit('refs/heads/branch_temp', self._author,
-                                       self._commiter, message, tree,
-                                       [self._initial_commit])
-
-      self.repo.branches.delete('branch_temp')
-      self.create_branch(f'branch_{commit.hex}', commit)
-
-    else:
-      self.repo.create_branch('branch_temp',
-                              self.repo.revparse_single(parents[0].hex))
-      commit = self.repo.create_commit('refs/heads/branch_temp', self._author,
-                                       self._commiter, message, tree, parents)
-      self.repo.branches.delete('branch_temp')
-      self.create_branch(commit=commit, name=f'branch_{commit.hex}')
-
-    self.repo.references.get('refs/remotes/{0}/{1}'.format(
-        "origin", "main")).set_target(commit)
-    self.repo.references.get('refs/heads/main').set_target(commit)
-
-    if self.debug:
-      os.system("echo -------------------------------" +
-                "-----------------------------------")
-      os.system(f"git -C osv/testdata/test_repositories/{self.name}" +
-                " log --all --graph --decorate")
-
-      #self.repo.branches.delete(created_branch.branch_name)
-
-    match vulnerability:
+  def add_event_commit(self,event:VulnerabilityType,parents=None):
+    self.add_commit(parents)
+    match event:
       case self.VulnerabilityType.INTRODUCED:
-        self.introduced.append(commit.hex)
+        self.introduced.append(self.get_head_hex())
       case self.VulnerabilityType.FIXED:
-        self.fixed.append(commit.hex)
+        self.fixed.append(self.get_head_hex())
       case self.VulnerabilityType.LAST_AFFECTED:
-        self.last_affected.append(commit.hex)
+        self.last_affected.append(self.get_head_hex())
       case self.VulnerabilityType.LIMIT:
-        self.limit.append(commit.hex)
+        self.limit.append(self.get_head_hex())
       case self.VulnerabilityType.NONE:
         pass
       case _:
         raise ValueError("Invalid vulnerability type")
-    return commit
+    return self.get_head_hex()
 
-  def remove(self):
-    """ shutil.rmtree(f"osv/testdata/test_repositories/{self.name}/")
+
+  def clean(self):
+    shutil.rmtree(self.repo_path)
     ##cleanup
     self.introduced = []
     self.fixed = []
     self.last_affected = []
-    self.limit = [] """
-    pass
+    self.limit = [] 
+    
+
   def get_ranges(self):
     """
         return the ranges of the repository
