@@ -10,7 +10,7 @@ class GitImpactTest(unittest.TestCase):
 
   @classmethod
   def setUpClass(cls):
-    cls.__repo_analyzer = impact.RepoAnalyzer(detect_cherrypicks=False)
+    cls.__repo_analyzer = impact.RepoAnalyzer(detect_cherrypicks=True)
 
   ######## 1rst : tests with only "introduced" and "fixed"
 
@@ -287,7 +287,7 @@ class GitImpactTest(unittest.TestCase):
         "Expected: %s, got: %s" % (expected, result.commits),
     )
 
-  ######## 2nd : tests with "introduced" and "last-affected"
+  ######## 3nd : tests with "introduced" and "last-affected"
 
   def test_introduced_last_affected_linear(self):
     """Ensures the basic behavior of last_affected 
@@ -407,7 +407,7 @@ class GitImpactTest(unittest.TestCase):
         "Expected: %s, got: %s" % (expected, result.commits),
     )
 
-  ######## 3nd : tests with "introduced", "limit", and "fixed"
+  ######## 4nd : tests with "introduced", "limit", and "fixed"
 
   def test_introduced_limit_fixed_linear_lf(self):
     """Ensures the behaviors of limit and fixed commits are not conflicting."""

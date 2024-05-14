@@ -1,4 +1,18 @@
-"""test_repository"""
+""" Utility class to create a test repository for the git tests
+
+This module contains a class that creates a test repository for the git tests
+It can be used to create a test repository and add commits tagged with different
+vulnerability types.
+
+usage:
+  repo = TestRepository("test_introduced_fixed_linear", debug=False)
+
+  first = repo.add_empty_commit(
+        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
+  second = repo.add_empty_commit(parents=[first])
+  repo.add_empty_commit(
+        parents=[second], vulnerability=TestRepository.VulnerabilityType.FIXED)
+"""
 import pygit2
 import json
 from datetime import datetime
@@ -7,9 +21,8 @@ import os
 import shutil
 import uuid
 
-
 class TestRepository:
-  """ Utilitary class to create a test repository for the git tests
+  """ Utility class to create a test repository for the git tests
   """
 
   class VulnerabilityType(Enum):
@@ -18,6 +31,7 @@ class TestRepository:
     LAST_AFFECTED = 3
     LIMIT = 4
     NONE = 5
+
 
   _author = pygit2.Signature('John Smith', 'johnSmith@example.com')
   _commiter = pygit2.Signature('John Smith', 'johnSmith@example.com')
@@ -32,17 +46,25 @@ class TestRepository:
     self.last_affected = []
     self.limit = []
 
+    #delete the repository if it already exists
     if os.path.exists(f"osv/testdata/test_repositories/{name}"):
       shutil.rmtree(f"osv/testdata/test_repositories/{name}")
+    #initialize the repository
     self.repo = pygit2.init_repository(
         f"osv/testdata/test_repositories/{name}", bare=False)
-    #empty initial commit usefull for the creation of the repository
-    tree = self.repo.TreeBuilder().write()
+    #empty initial commit useful for the creation of the repository with  a file with a random name
+    with open(f"osv/testdata/test_repositories/{name}/{ str(uuid.uuid1())}", "w") as f:
+      f.write("")
+    index = self.repo.index
+    index.add_all()
+    tree = index.write_tree()
     self._initial_commit = self.repo.create_commit('refs/heads/main',
                                                    self._author, self._commiter,
                                                    "message", tree, [])
+    #create a branch for the initial commit and the reference to the remote
     self.create_branch(f"branch_{self._initial_commit.hex}",
                        self._initial_commit)
+    #put the initial commit in the main branch
     self.repo.references.create("refs/remotes/origin/main",
                                 self._initial_commit)
 
@@ -60,7 +82,11 @@ class TestRepository:
     type and adds it to the vulnerability list if specified 
     """
 
-    tree = self.repo.TreeBuilder().write()
+    with open(f"osv/testdata/test_repositories/{self.name}/{ str(uuid.uuid1())}", "w") as f:
+      f.write("")
+    index = self.repo.index
+    index.add_all()
+    tree = index.write_tree()
     self._author = pygit2.Signature(
         str(uuid.uuid1()), 'johnSmith@example.com'
     )  #using a random uuid to avoid commits being the same
@@ -112,16 +138,13 @@ class TestRepository:
     return commit
 
   def remove(self):
-    shutil.rmtree(f"osv/testdata/test_repositories/{self.name}/")
-    while os.path.exists(
-        f"osv/testdata/test_repositories/{self.name}/"):  # check if it exists
-      pass
+    """ shutil.rmtree(f"osv/testdata/test_repositories/{self.name}/")
     ##cleanup
     self.introduced = []
     self.fixed = []
     self.last_affected = []
-    self.limit = []
-
+    self.limit = [] """
+    pass
   def get_ranges(self):
     """
         return the ranges of the repository
