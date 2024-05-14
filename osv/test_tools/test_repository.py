@@ -53,8 +53,12 @@ class TestRepository:
     #create an initial commit
     parent=[]
     self.add_commit(parent)
+
+  def merge(self,commit,event:VulnerabilityType=VulnerabilityType.NONE):
+    self.repo.merge(commit)
+    self.add_commit([self.get_head_hex(),commit],event)
     
-  def add_commit(self,parents=None):
+  def add_commit(self,parents=None,event:VulnerabilityType=VulnerabilityType.NONE):
     if parents is None:
       parents=[self.get_head_hex()]
     with open(f"{self.repo_path}/{ str(uuid.uuid1())}", "w") as f:
@@ -64,6 +68,7 @@ class TestRepository:
     tree = index.write_tree()
     index.write()
     self.repo.create_commit('HEAD',self._author, self._commiter, "message", tree, parents)
+    self.add_event(event)
     return self.get_head_hex()
   
   def get_head_hex(self):
@@ -87,8 +92,7 @@ class TestRepository:
       branch=self.repo.branches.get(branch_name)
       self.repo.references.create(f'refs/remotes/origin/{branch_name}', branch.raw_target)
 
-  def add_event_commit(self,event:VulnerabilityType,parents=None):
-    self.add_commit(parents)
+  def add_event(self,event:VulnerabilityType):
     match event:
       case self.VulnerabilityType.INTRODUCED:
         self.introduced.append(self.get_head_hex())
@@ -102,7 +106,6 @@ class TestRepository:
         pass
       case _:
         raise ValueError("Invalid vulnerability type")
-    return self.get_head_hex()
 
 
   def clean(self):

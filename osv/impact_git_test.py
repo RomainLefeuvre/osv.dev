@@ -19,9 +19,9 @@ class GitImpactTest(unittest.TestCase):
     """Simple range, only two commits are vulnerable. """
 
     repo = TestRepository("test_introduced_fixed_linear", debug=False)
-    first = repo.add_event_commit(TestRepository.VulnerabilityType.INTRODUCED)
+    first = repo.add_commit([repo.get_head_hex()],TestRepository.VulnerabilityType.INTRODUCED)
     second = repo.add_commit()
-    repo.add_event_commit(TestRepository.VulnerabilityType.FIXED)
+    repo.add_commit([repo.get_head_hex()],TestRepository.VulnerabilityType.FIXED)
     repo.create_remote_branch()
     
     (all_introduced, all_fixed, all_last_affected,
@@ -37,19 +37,21 @@ class GitImpactTest(unittest.TestCase):
         expected,
         "Expected: %s, got: %s" % (expected, result.commits),
     )
-'''
+  '''
   def test_introduced_fixed_branch_propagation(self):
     """Ensures the detection of the propagation 
     of the vulnerability in created branches"""
     repo = TestRepository(
         "test_introduced_fixed_branch_propagation", debug=False)
+    first = repo.add_commit([repo.get_head_hex()],
+        TestRepository.VulnerabilityType.INTRODUCED)
+    second = repo.add_commit()
+    repo.create_branch_if_needed_and_checkout("feature")
+    repo.add_commit([repo.get_head_hex()],TestRepository.VulnerabilityType.FIXED)
+    repo.checkout("main")
+    third=repo.add_commit()
+    repo.create_remote_branch()
 
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit(parents=[first])
-    repo.add_empty_commit(
-        parents=[second], vulnerability=TestRepository.VulnerabilityType.FIXED)
-    fourth = repo.add_empty_commit(parents=[second])
     (all_introduced, all_fixed, all_last_affected,
      all_limit) = repo.get_ranges()
 
@@ -57,8 +59,8 @@ class GitImpactTest(unittest.TestCase):
                                                all_fixed, all_limit,
                                                all_last_affected)
 
-    expected = set([first.hex, second.hex, fourth.hex])
-    repo.remove()
+    expected = set([first, second, third])
+    repo.clean()
     self.assertEqual(
         result.commits,
         expected,
@@ -150,18 +152,18 @@ class GitImpactTest(unittest.TestCase):
         expected,
         "Expected: %s, got: %s" % (expected, result.commits),
     )
-
+  '''
   def test_introduced_fixed_fix_propagation(self):
     """Ensures that a fix gets propagated, in the case of a merge"""
     repo = TestRepository("test_introduced_fixed_fix_propagation")
+    repo.create_branch_if_needed_and_checkout("feature")
+    first = repo.add_commit([repo.get_head_hex()],TestRepository.VulnerabilityType.FIXED)
+    repo.checkout("main")
+    second = repo.add_commit([repo.get_head_hex()],TestRepository.VulnerabilityType.INTRODUCED)
+    third = repo.merge(first)
+    repo.add_commit([repo.get_head_hex()],TestRepository.VulnerabilityType.FIXED)
+    repo.create_remote_branch()
 
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.FIXED)
-    third = repo.add_empty_commit(parents=[first, second])
-    repo.add_empty_commit(
-        parents=[third], vulnerability=TestRepository.VulnerabilityType.FIXED)
     (all_introduced, all_fixed, all_last_affected,
      all_limit) = repo.get_ranges()
 
@@ -169,14 +171,14 @@ class GitImpactTest(unittest.TestCase):
                                                all_fixed, all_limit,
                                                all_last_affected)
 
-    expected = set([first.hex])
-    repo.remove()
+    expected = set([second])
+    repo.clean()
     self.assertEqual(
         result.commits,
         expected,
         "Expected: %s, got: %s" % (expected, result.commits),
     )
-
+  '''
   ######## 2nd : tests with "introduced" and "limit"
 
   def test_introduced_limit_linear(self):
