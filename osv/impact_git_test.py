@@ -11,7 +11,7 @@ class GitImpactTest(unittest.TestCase):
 
   @classmethod
   def setUpClass(cls):
-    cls.__repo_analyzer = impact.RepoAnalyzer(detect_cherrypicks=False)
+    cls.__repo_analyzer = impact.RepoAnalyzer(detect_cherrypicks=True)
   
   ######## 1st : tests with "introduced" and "fixed"
   def test_introduced_fixed_linear(self):
@@ -19,7 +19,7 @@ class GitImpactTest(unittest.TestCase):
     Model : A->B->C->D """
     events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.FIXED}
     expected_vulnerable={"B","C"}
-    self.template_four_linear(events,expected_vulnerable)
+    self.template_four_linear(events,expected_vulnerable,"test_introduced_fixed_linear")
   
   ######## 2nd : tests with "introduced" and "limit"
   def test_introduced_limit_linear(self):
@@ -28,7 +28,7 @@ class GitImpactTest(unittest.TestCase):
     Model : A->B->C->D """
     events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.LIMIT}
     expected_vulnerable={"B","C"}
-    self.template_four_linear(events,expected_vulnerable)
+    self.template_four_linear(events,expected_vulnerable,"test_introduced_limit_linear")
   
   ######## 3nd : tests with "introduced" and "last-affected"
   def test_introduced_last_affected_linear(self):
@@ -37,7 +37,7 @@ class GitImpactTest(unittest.TestCase):
     Model : A->B->C->D """
     events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.LAST_AFFECTED}
     expected_vulnerable={"B","C","D"}
-    self.template_four_linear(events,expected_vulnerable)
+    self.template_four_linear(events,expected_vulnerable,"test_introduced_last_affected_linear")
 
   ######## 4nd : tests with "introduced", "limit", and "fixed"
   def test_introduced_limit_fixed_linear_lf(self):
@@ -45,12 +45,110 @@ class GitImpactTest(unittest.TestCase):
     Model : A->B->C->D """
     events={"B":EventType.INTRODUCED,"C":EventType.LIMIT,"D":EventType.FIXED}
     expected_vulnerable={"B"}
-    self.template_four_linear(events,expected_vulnerable)
+    self.template_four_linear(events,expected_vulnerable,"test_introduced_limit_fixed_linear_lf")
+    
+  ######## 5nd : tests with "introduced", "limit", and "fixed" in a different order
+  def test_introduced_limit_fixed_linear_fl(self):
+    """Ensures the behaviors of limit and fixed commits are not conflicting.
+    Model : A->B->C->D """
+    events={"B":EventType.INTRODUCED,"D":EventType.LIMIT,"C":EventType.FIXED}
+    expected_vulnerable={"B"}
+    self.template_four_linear(events,expected_vulnerable,"test_introduced_limit_fixed_linear_fl")
 
-  def template_four_linear(self,events,expected):
-    """Linear template with 4 commits
+ ######## 6nd : branch tests with "introduced", "limit", and "fixed"
+  def test_introduced_fixed_branch_propagation(self):
+    """Simple range, checking the propagation of the vulnerability in created branch. 
+    Model :   A->B->C->D 
+                    |->E"""
+    events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.FIXED,"E":EventType.NONE}
+    expected_vulnerable={"B","C","E"}
+    self.template_five_last_branch(events,expected_vulnerable,"test_introduced_fixed_branch_propagation")
+
+ ######## 7nd : branch tests with "introduced" and "limit"
+  def test_introduced_limit_branch(self):
+    """ensures the basic behavior of limit commits in branches. 
+    Model :   A->B->C->D 
+                    |->E"""
+    events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.LIMIT,"E":EventType.NONE}
+    expected_vulnerable={"B","C"}
+    self.template_five_last_branch(events,expected_vulnerable,"test_introduced_limit_branch")
+
+ ######## 8nd : branch tests with "introduced" and "last-affected"
+  def test_introduced_last_affected_branch_propagation(self):
+    """ensures the basic behavior of last_affected commits when the repository has a branche. 
+    Model :   A->B->C->D 
+                    |->E"""
+    events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.LAST_AFFECTED,"E":EventType.NONE}
+    expected_vulnerable={"B","C","D","E"}
+    self.template_five_last_branch(events,expected_vulnerable,"test_introduced_last_affected_branch_propagation")
+
+ ######## 9nd : merge tests with "introduced" and "fixed"
+  def test_introduced_fixed_merge(self):
+    """ Simple range, checking the non propagation of the vulnerability in created branch . 
+    Model :      A ->B-> D->E 
+                  |->C-/^"""
+    events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.NONE,"E":EventType.FIXED}
+    expected_vulnerable={"B","D"}
+    self.template_five_second_branch_merge(events,expected_vulnerable,"test_introduced_fixed_merge")
+
+ ######## 10nd : merge tests with "introduced" and "limit"
+  def test_introduced_limit_merge(self):
+    """ Simple range, checking the non propagation of the vulnerability in created branch with a limit commit. 
+    Model :      A ->B-> D->E 
+                  |->C-/^"""
+    events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.NONE,"E":EventType.LIMIT}
+    expected_vulnerable={"B","D"}
+    self.template_five_second_branch_merge(events,expected_vulnerable,"test_introduced_limit_merge")
+    
+ ######## 11nd : merge tests with "introduced" and "last-affected"
+  def test_introduced_last_affected_merge(self):
+    """ Simple range, checking the non propagation of the vulnerability in created branch with a limit commit. 
+    Model :      A ->B-> D->E 
+                  |->C-/^"""
+    events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.NONE,"E":EventType.LIMIT}
+    expected_vulnerable={"B","D"}
+    self.template_five_second_branch_merge(events,expected_vulnerable,"test_introduced_last_affected_merge")
+                    
+ ######## 12nd : merge tests with "introduced", and two "fixed", one in the created branch and one in the main branch 
+  def test_introduced_fixed_merge_fix_propagation(self):
+    """ Srange with two fixed, checking the non propagation of the fix from the created branch to the main branch. 
+    Model :      A ->B-> D->E 
+                  |->C-/^"""
+    events={"B":EventType.INTRODUCED,"C":EventType.FIXED,"D":EventType.NONE,"E":EventType.FIXED}
+    expected_vulnerable={"B"}
+    self.template_five_second_branch_merge(events,expected_vulnerable,"test_introduced_fixed_merge_fix_propagation")
+  
+ ######## 13nd : linear tests with two "introduced" and two "fixed" intercalated 
+  def test_introduced_fixed_two_linear(self):
+    """ Srange with two fixed, checking the non propagation of the fix from the created branch to the main branch. 
+    Model :      A->B->C->D->E """
+    events={"B":EventType.INTRODUCED,"C":EventType.FIXED,"D":EventType.INTRODUCED,"E":EventType.FIXED}
+    expected_vulnerable={"B","C"}
+    self.template_five_linear(events,expected_vulnerable,"test_introduced_fixed_two_linear")
+    
+ ######## 14nd : merge tests with one "introduced" in main, one "fixed" in the created branch, and one "fixed" in the main branch 
+  def test_introduced_fixed_merge_propagation(self):
+    """ range with two fixed, checking the non propagation of the fix from the created branch to the main branch. 
+    Model :          A->B->C->E-F 
+                     |-> D -/^ """
+    events={"B":EventType.INTRODUCED,"C":EventType.FIXED,"D":EventType.INTRODUCED,"E":EventType.NONE,"F":EventType.FIXED}
+    expected_vulnerable={"B","D","E"}
+    self.template_five_linear(events,expected_vulnerable,"test_introduced_fixed_merge_propagation")
+  
+ ######## 15nd : testing the behavior of limit with a branch
+  def test_introduced_limit_branch_limit(self):
+    """ range with. 
+    Model :      A ->B-> C->E 
+                     |-> D"""
+    events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.LIMIT,"E":EventType.FIXED}
+    expected_vulnerable={"B"}
+    self.template_five_third_branch(events,expected_vulnerable,"test_introduced_limit_branch_limit")                                                  
+
+  ###### Utility Template methods
+  def template_four_linear(self,events,expected,name):
+    """Linear template with 4 commits  
     A->B->C->D """
-    repo = TestRepository("test_introduced_fixed_linear", debug=False)
+    repo = TestRepository(name, debug=False)
     repo.add_commit(message="B", parents=[repo.get_head_hex()], event=events["B"])
     repo.add_commit(message="C", parents=[repo.get_head_hex()], event=events["C"])
     repo.add_commit(message="D", parents=[repo.get_head_hex()], event=events["D"])
@@ -63,209 +161,162 @@ class GitImpactTest(unittest.TestCase):
     result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
                                                all_fixed, all_limit,
                                                all_last_affected)
+    result_commit_message = repo.get_message_by_commits_id(result.commits)
     repo.clean()
     self.assertEqual(
         result.commits,
         expected_commits,
-        "Expected: %s, got: %s" % (expected_commits, result.commits),
+        "Expected: %s, got: %s" % (expected, result_commit_message),
     )
+ 
+  def template_five_linear(self,events,expected,name):
+    """Linear template with 5 commits  
+    A->B->C->D """
+    repo = TestRepository(name, debug=False)
+    repo.add_commit(message="B", parents=[repo.get_head_hex()], event=events["B"])
+    repo.add_commit(message="C", parents=[repo.get_head_hex()], event=events["C"])
+    repo.add_commit(message="D", parents=[repo.get_head_hex()], event=events["D"])
+    repo.add_commit(message="E", parents=[repo.get_head_hex()], event=events["E"])
+
+    repo.create_remote_branch()
+    
+    (all_introduced, all_fixed, all_last_affected,
+     all_limit) = repo.get_ranges()
+    expected_commits = repo.get_commit_ids(expected)
+
+    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
+                                               all_fixed, all_limit,
+                                               all_last_affected)
+    result_commit_message = repo.get_message_by_commits_id(result.commits)
+    repo.clean()
+    self.assertEqual(
+        result.commits,
+        expected_commits,
+        "Expected: %s, got: %s" % (expected, result_commit_message),
+    )
+    
+  def template_five_last_branch(self,events,expected,name):
+    """Template with 5 commits, the last one in a different branch
+       
+    A->B->C->D 
+          |->E """    
+    repo = TestRepository(name, debug=False)
+    repo.add_commit(message="B", parents=[repo.get_head_hex()], event=events["B"])
+    c = repo.add_commit(message="C", parents=[repo.get_head_hex()], event=events["C"])
+    repo.create_branch_if_needed_and_checkout("feature")
+    repo.add_commit(message="E", parents=[c], event=events["E"])
+    repo.checkout("main")
+    repo.add_commit(message="D", parents=[repo.get_head_hex()], event=events["D"])
+    repo.create_remote_branch()
+    
+    (all_introduced, all_fixed, all_last_affected,
+     all_limit) = repo.get_ranges()
+    expected_commits = repo.get_commit_ids(expected)
+
+    result =  self.__repo_analyzer.get_affected(repo.repo, all_introduced,
+                                               all_fixed, all_limit,
+                                               all_last_affected)
+    result_commit_message = repo.get_message_by_commits_id(result.commits)
+    repo.clean()
+    self.assertEqual(
+        result.commits,
+        expected_commits,
+        "Expected: %s, got: %s" % (expected, result_commit_message),
+    )   
+    
+  def template_five_second_branch_merge(self,events,expected,name):
+    """Template with 5 commits, the second one in a different branch and merged right after 
+      
+    A->B->D->E 
+    |->C-/^ """
+    repo = TestRepository(name, debug=False)
+    repo.create_branch_if_needed_and_checkout("feature")
+    c = repo.add_commit(message="C", parents=[repo.get_head_hex()], event=events["C"])
+    repo.checkout("main")
+    b = repo.add_commit(message="B", parents=[repo.get_head_hex()], event=events["B"]) 
+    repo.add_commit(message="D", parents=[b,c], event=events["D"])
+    repo.add_commit(message="E", parents=[repo.get_head_hex()], event=events["E"])
+    repo.create_remote_branch()
+    
+    (all_introduced, all_fixed, all_last_affected,
+     all_limit) = repo.get_ranges()
+    expected_commits = repo.get_commit_ids(expected)
+
+    result =  self.__repo_analyzer.get_affected(repo.repo, all_introduced,
+                                               all_fixed, all_limit,
+                                               all_last_affected)
+    result_commit_message = repo.get_message_by_commits_id(result.commits)
+    repo.clean()
+    self.assertEqual(
+        result.commits,
+        expected_commits,
+        "Expected: %s, got: %s" % (expected, result_commit_message),
+    )
+    
+  def template_six_second_branch_merge(self,events,expected,name):
+    """Template with 6 commits, the second one in a different branch and merged after two commits in the main branch
+       
+    A->B->C->E->F  
+    |->  D -/^ """
+    repo = TestRepository(name, debug=False)
+    repo.create_branch_if_needed_and_checkout("feature")
+    d = repo.add_commit(message="D", parents=[repo.get_head_hex()], event=events["D"])
+    repo.checkout("main")
+    repo.add_commit(message="B", parents=[repo.get_head_hex()], event=events["B"]) 
+    c = repo.add_commit(message="C", parents=[repo.get_head_hex()], event=events["C"]) 
+
+    repo.add_commit(message="E", parents=[d,c], event=events["E"])
+    repo.add_commit(message="F", parents=[repo.get_head_hex()], event=events["E"])
+
+    repo.create_remote_branch()
+    
+    (all_introduced, all_fixed, all_last_affected,
+     all_limit) = repo.get_ranges()
+    expected_commits = repo.get_commit_ids(expected)
+
+    result =  self.__repo_analyzer.get_affected(repo.repo, all_introduced,
+                                               all_fixed, all_limit,
+                                               all_last_affected)
+    result_commit_message = repo.get_message_by_commits_id(result.commits)
+    repo.clean()
+    self.assertEqual(
+        result.commits,
+        expected_commits,
+        "Expected: %s, got: %s" % (expected, result_commit_message),
+    )
+  def template_five_third_branch(self,events,expected,name):
+    """Template with 5 commits, the third one in a different branch, not merged
+      
+    A->B->C->E   
+       |->D"""
+    repo = TestRepository(name, debug=False)
+    repo.add_commit(message="B", parents=[repo.get_head_hex()], event=events["B"]) 
+    repo.create_branch_if_needed_and_checkout("feature")
+    repo.add_commit(message="D", parents=[repo.get_head_hex()], event=events["D"])
+    repo.checkout("main")
+    repo.add_commit(message="C", parents=[repo.get_head_hex()], event=events["C"]) 
+    repo.add_commit(message="E", parents=[repo.get_head_hex()], event=events["E"])
+
+    repo.create_remote_branch()
+    
+    (all_introduced, all_fixed, all_last_affected,
+     all_limit) = repo.get_ranges()
+    expected_commits = repo.get_commit_ids(expected)
+
+    result =  self.__repo_analyzer.get_affected(repo.repo, all_introduced,
+                                               all_fixed, all_limit,
+                                               all_last_affected)
+    result_commit_message = repo.get_message_by_commits_id(result.commits)
+    repo.clean()
+    self.assertEqual(
+        result.commits,
+        expected_commits,
+        "Expected: %s, got: %s" % (expected, result_commit_message),
+    )
+        
   '''
-  def test_introduced_fixed_branch_propagation(self):
-    """Ensures the detection of the propagation 
-    of the vulnerability in created branches"""
-    repo = TestRepository(
-        "test_introduced_fixed_branch_propagation", debug=False)
-    first = repo.add_commit([repo.get_head_hex()],
-        TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_commit()
-    repo.create_branch_if_needed_and_checkout("feature")
-    repo.add_commit([repo.get_head_hex()],TestRepository.VulnerabilityType.FIXED)
-    repo.checkout("main")
-    third=repo.add_commit()
-    repo.create_remote_branch()
-
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([first, second, third])
-    repo.clean()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
-
-  def test_introduced_fixed_merge(self):
-    """Ensures that a merge without a fix does not 
-    affect the propagation of a vulnerability"""
-    repo = TestRepository("test_introduced_fixed_merge", debug=False)
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit()
-    third = repo.add_empty_commit(parents=[first, second])
-    repo.add_empty_commit(
-        parents=[third], vulnerability=TestRepository.VulnerabilityType.FIXED)
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([first.hex, third.hex])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
-
-  def test_introduced_fixed_two_linear(self):
-    """Ensures that multiple introduced commit 
-    in the same branch are correctly handled"""
-    repo = TestRepository("test_introduced_fixed_two_linear", debug=False)
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit(
-        parents=[first], vulnerability=TestRepository.VulnerabilityType.FIXED)
-    third = repo.add_empty_commit(
-        parents=[second],
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    repo.add_empty_commit(
-        parents=[third], vulnerability=TestRepository.VulnerabilityType.FIXED)
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([first.hex, third.hex])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
-
-  def test_introduced_fixed_merge_propagation(self):
-    """Ensures that a vulnerability is propagated from 
-    a branch, in spite of the main branch having a fix."""
-
-    repo = TestRepository(
-        "test_introduced_fixed_merge_propagation", debug=False)
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit(
-        parents=[first], vulnerability=TestRepository.VulnerabilityType.FIXED)
-    third = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    fourth = repo.add_empty_commit(parents=[second, third])
-    repo.add_empty_commit(
-        parents=[fourth], vulnerability=TestRepository.VulnerabilityType.FIXED)
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([first.hex, third.hex, fourth.hex])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
-  
-  def test_introduced_fixed_fix_propagation(self):
-    """Ensures that a fix gets propagated, in the case of a merge"""
-    repo = TestRepository("test_introduced_fixed_fix_propagation")
-    repo.create_branch_if_needed_and_checkout("feature")
-    first = repo.add_commit([repo.get_head_hex()],TestRepository.VulnerabilityType.FIXED)
-    repo.checkout("main")
-    second = repo.add_commit([repo.get_head_hex()],TestRepository.VulnerabilityType.INTRODUCED)
-    third = repo.merge(first)
-    repo.add_commit([repo.get_head_hex()],TestRepository.VulnerabilityType.FIXED)
-    repo.create_remote_branch()
-
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([second])
-    repo.clean()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
   
   ######## 2nd : tests with "introduced" and "limit"
-
-  
-  def test_introduced_limit_branch(self):
-    """Ensures that a limit commit does limit the vulnerability to a branch."""
-    repo = TestRepository("test_intoduced_limit_branch")
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit(parents=[first])
-    repo.add_empty_commit(
-        parents=[second], vulnerability=TestRepository.VulnerabilityType.LIMIT)
-    repo.add_empty_commit(parents=[second])
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([
-        first.hex,
-        second.hex,
-    ])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
-
-  def test_introduced_limit_merge(self):
-    """Ensures that a merge without a fix does 
-    not affect the propagation of a vulnerability."""
-    repo = TestRepository("test_intoduced_limit_merge", debug=False)
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit()
-    third = repo.add_empty_commit(parents=[first, second])
-    repo.add_empty_commit(
-        parents=[third], vulnerability=TestRepository.VulnerabilityType.LIMIT)
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([first.hex, third.hex])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
 
   def test_introduced_limit_two_linear(self):
     """Ensures that multiple introduced commit in
@@ -308,62 +359,6 @@ class GitImpactTest(unittest.TestCase):
         "Expected: %s, got: %s" % (expected, result.commits),
     )
 
-  def test_introduced_last_affected_branch_propagation(self):
-    """Ensures that vulnerabilities are propagated to branches"""
-    repo = TestRepository(
-        "test_introduced_last_affected_branch_propagation", debug=False)
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit(parents=[first])
-    third = repo.add_empty_commit(
-        parents=[second],
-        vulnerability=TestRepository.VulnerabilityType.LAST_AFFECTED,
-    )
-    fourth = repo.add_empty_commit(parents=[second])
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([first.hex, second.hex, third.hex, fourth.hex])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
-
-  def test_introduced_last_affected_merge(self):
-    """Ensures that a merge without a fix does 
-    not affect the propagation of a vulnerability."""
-    repo = TestRepository("test_introduced_last_affected_merge", debug=False)
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit()
-    third = repo.add_empty_commit(parents=[first, second])
-    fourth = repo.add_empty_commit(
-        parents=[third],
-        vulnerability=TestRepository.VulnerabilityType.LAST_AFFECTED,
-    )
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([first.hex, third.hex, fourth.hex])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
-
   def test_introduced_last_affected_two_linear(self):
     """Ensures that multiple introduced commit in 
     the same branch are correctly handled, wrt last_affected."""
@@ -399,59 +394,5 @@ class GitImpactTest(unittest.TestCase):
         "Expected: %s, got: %s" % (expected, result.commits),
     )
 
-  ######## 4nd : tests with "introduced", "limit", and "fixed"
 
-  
-
-  def test_introduced_limit_fixed_linear_fl(self):
-    """Ensures the behaviors of limit and fixed commits are not conflicting"""
-    repo = TestRepository("test_introduced_limit_fixed_linear_lf")
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit(
-        parents=[first], vulnerability=TestRepository.VulnerabilityType.FIXED)
-    repo.add_empty_commit(
-        parents=[second], vulnerability=TestRepository.VulnerabilityType.LIMIT)
-
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([first.hex])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
-
-  def test_introduced_limit_branch_limit(self):
-    """Ensures the behaviors of limit and fixed
-    commits are not conflicting, in the case of a branch created."""
-    repo = TestRepository("test_introduced_limit_fixed_linear_lf", debug=False)
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit(
-        parents=[first], vulnerability=TestRepository.VulnerabilityType.LIMIT)
-    repo.add_empty_commit(parents=[first])
-    repo.add_empty_commit(
-        parents=[second], vulnerability=TestRepository.VulnerabilityType.FIXED)
-
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([first.hex])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
     '''

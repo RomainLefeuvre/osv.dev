@@ -83,6 +83,14 @@ class CommitsInfo:
           case _:
             raise ValueError("Invalid vulnerability type")
       return (introduced, fixed, last_affected, limit)
+    
+    def get_message_by_commits_id(self,commits_id):
+      commit_messages:set[str] = set()
+      for commit in self._commits:
+        if commit.commit_id in commits_id:
+          commit_messages.add(commit.commit_message)
+      return commit_messages
+    
 class TestRepository:
   """ Utility class to create a test repository for the git tests
   """
@@ -111,12 +119,13 @@ class TestRepository:
 
   def get_commit_ids(self,commit_messages):
     return self.commits_info.get_commit_ids(commit_messages)
-  
+    
   def add_commit(self,message,parents=None,event:EventType=EventType.NONE):
     if parents is None:
       parents=[self.get_head_hex()]
-    with open(f"{self.repo_path}/{ str(uuid.uuid1())}", "w") as f:
-      f.write("")
+    random_str = str(uuid.uuid1())
+    with open(f"{self.repo_path}/{ random_str}", "w") as f:
+      f.write(random_str)
     index = self.repo.index
     index.add_all()
     tree = index.write_tree()
@@ -161,6 +170,9 @@ class TestRepository:
         """
     return self.commits_info.get_ranges()
 
+  def get_message_by_commits_id(self,commits_id):
+    return self.commits_info.get_message_by_commits_id(commits_id)
+  
   def print_commits(self):
     """ prints the commits of the repository
     """
