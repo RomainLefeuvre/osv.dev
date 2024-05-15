@@ -1,6 +1,6 @@
 """impact_git_test.py: Tests for the impact module using git repositories."""
 
-from .test_tools.test_repository import TestRepository
+from .test_tools.test_repository import TestRepository, EventType
 
 import unittest
 from . import impact
@@ -13,29 +13,51 @@ class GitImpactTest(unittest.TestCase):
   def setUpClass(cls):
     cls.__repo_analyzer = impact.RepoAnalyzer(detect_cherrypicks=False)
 
-  ######## 1rst : tests with only "introduced" and "fixed"
-
   def test_introduced_fixed_linear(self):
-    """Simple range, only two commits are vulnerable. """
+    events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.FIXED}
+    expected_vulnerable={"B","C"}
+    self.template_linear(events,expected_vulnerable)
 
+  def test_introduced_limit_linear(self):
+    """Ensures the basic behavior of limit 
+    (the limit commit is considered unaffected)."""
+    events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.LIMIT}
+    expected_vulnerable={"B","C"}
+    self.template_linear(events,expected_vulnerable)
+
+  def test_introduced_limit_fixed_linear_lf(self):
+    """Ensures the behaviors of limit and fixed commits are not conflicting."""
+    events={"B":EventType.INTRODUCED,"C":EventType.LIMIT,"D":EventType.FIXED}
+    expected_vulnerable={"B"}
+    self.template_linear(events,expected_vulnerable)
+
+  def test_introduced_last_affected_linear(self):
+    """Ensures the basic behavior of last_affected 
+    commits (the las_affected commit is considered affected)."""
+    events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.LAST_AFFECTED}
+    expected_vulnerable={"B","C","D"}
+    self.template_linear(events,expected_vulnerable)
+
+  def template_linear(self,events,expected):
+    """Simple range, only two commits are vulnerable. """
     repo = TestRepository("test_introduced_fixed_linear", debug=False)
-    first = repo.add_commit([repo.get_head_hex()],TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_commit()
-    repo.add_commit([repo.get_head_hex()],TestRepository.VulnerabilityType.FIXED)
+    repo.add_commit(message="B", parents=[repo.get_head_hex()], event=events["B"])
+    repo.add_commit(message="C", parents=[repo.get_head_hex()], event=events["C"])
+    repo.add_commit(message="D", parents=[repo.get_head_hex()], event=events["D"])
     repo.create_remote_branch()
     
     (all_introduced, all_fixed, all_last_affected,
      all_limit) = repo.get_ranges()
+    expected_commits = repo.get_commit_ids(expected)
 
     result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
                                                all_fixed, all_limit,
                                                all_last_affected)
-    expected = set([first, second])
     repo.clean()
     self.assertEqual(
         result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
+        expected_commits,
+        "Expected: %s, got: %s" % (expected_commits, result.commits),
     )
   '''
   def test_introduced_fixed_branch_propagation(self):
@@ -152,7 +174,7 @@ class GitImpactTest(unittest.TestCase):
         expected,
         "Expected: %s, got: %s" % (expected, result.commits),
     )
-  '''
+  
   def test_introduced_fixed_fix_propagation(self):
     """Ensures that a fix gets propagated, in the case of a merge"""
     repo = TestRepository("test_introduced_fixed_fix_propagation")
@@ -178,34 +200,10 @@ class GitImpactTest(unittest.TestCase):
         expected,
         "Expected: %s, got: %s" % (expected, result.commits),
     )
-  '''
+  
   ######## 2nd : tests with "introduced" and "limit"
 
-  def test_introduced_limit_linear(self):
-    """Ensures the basic behavior of limit 
-    (the limit commit is considered unaffected)."""
-    repo = TestRepository("test_intoduced_limit_linear")
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit(parents=[first])
-    repo.add_empty_commit(
-        parents=[second], vulnerability=TestRepository.VulnerabilityType.LIMIT)
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([first.hex, second.hex])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
-
+  
   def test_introduced_limit_branch(self):
     """Ensures that a limit commit does limit the vulnerability to a branch."""
     repo = TestRepository("test_intoduced_limit_branch")
@@ -290,24 +288,7 @@ class GitImpactTest(unittest.TestCase):
 
   ######## 3nd : tests with "introduced" and "last-affected"
 
-  def test_introduced_last_affected_linear(self):
-    """Ensures the basic behavior of last_affected 
-    commits (the las_affected commit is considered affected)."""
-    repo = TestRepository("test_introduced_last_affected_linear")
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit(parents=[first])
-    third = repo.add_empty_commit(
-        parents=[second],
-        vulnerability=TestRepository.VulnerabilityType.LAST_AFFECTED,
-    )
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
+ 
 
     expected = set([first.hex, second.hex, third.hex])
     repo.remove()
@@ -410,31 +391,7 @@ class GitImpactTest(unittest.TestCase):
 
   ######## 4nd : tests with "introduced", "limit", and "fixed"
 
-  def test_introduced_limit_fixed_linear_lf(self):
-    """Ensures the behaviors of limit and fixed commits are not conflicting."""
-    repo = TestRepository("test_introduced_limit_fixed_linear_lf")
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit(
-        parents=[first], vulnerability=TestRepository.VulnerabilityType.LIMIT)
-    repo.add_empty_commit(
-        parents=[second], vulnerability=TestRepository.VulnerabilityType.FIXED)
-
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([first.hex])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
+  
 
   def test_introduced_limit_fixed_linear_fl(self):
     """Ensures the behaviors of limit and fixed commits are not conflicting"""
