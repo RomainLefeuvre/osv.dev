@@ -311,7 +311,6 @@ class RepoAnalyzer:
       else:
         diff = repo.diff(commit.parents[0], commit)
         patch_id = diff.patchid
-            
       if patch_id == target_patch_id:
         return str(commit.id)
 
