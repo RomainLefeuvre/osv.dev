@@ -21,25 +21,17 @@ import os
 import shutil
 import uuid
 import logging
+from osv import vulnerability_pb2
 
-
-class EventType(Enum):
-  INTRODUCED = 1
-  FIXED = 2
-  LAST_AFFECTED = 3
-  LIMIT = 4
-  NONE = 5
 
 
 class CommitInfo:
   """Single commit information
   """
 
-  def __init__(self, commit_id: str, commit_message: str,
-               vulnerability_type: EventType):
+  def __init__(self, commit_id: str, commit_message: str):
     self.commit_id: str = commit_id
     self.commit_message: str = commit_message
-    self.vulnerability_type: EventType = vulnerability_type
 
 
 class CommitsInfo:
@@ -48,6 +40,7 @@ class CommitsInfo:
 
   def __init__(self):
     self._commits: list[CommitInfo] = []
+    self.affected_range: vulnerability_pb2.Range = vulnerability_pb2.Range()
 
   def existing_message(self, message):
     for commit in self._commits:
@@ -58,10 +51,14 @@ class CommitsInfo:
   def add_commit(self,
                  commit_id,
                  commit_message,
-                 vulnerability_type=EventType.NONE):
+                 event_type:str=None):
     if not self.existing_message(commit_message):
+      if event_type:
+        if event_type not in vulnerability_pb2.Event.DESCRIPTOR.fields_by_name.keys():
+          raise ValueError("Invalid vulnerability type")
+        self.affected_range.events.append(vulnerability_pb2.Event(**{event_type: commit_id}))
       self._commits.append(
-          CommitInfo(commit_id, commit_message, vulnerability_type))
+          CommitInfo(commit_id, commit_message))
     else:
       raise ValueError("Commit message already exists")
 
@@ -94,20 +91,22 @@ class CommitsInfo:
     fixed = []
     last_affected = []
     limit = []
-    for commit in self._commits:
-      match commit.vulnerability_type:
-        case EventType.INTRODUCED:
-          introduced.append(commit.commit_id)
-        case EventType.FIXED:
-          fixed.append(commit.commit_id)
-        case EventType.LAST_AFFECTED:
-          last_affected.append(commit.commit_id)
-        case EventType.LIMIT:
-          limit.append(commit.commit_id)
-        case EventType.NONE:
-          pass
-        case _:
-          raise ValueError("Invalid vulnerability type")
+    for event in self.affected_range.events:
+      if event.introduced and event.introduced != '0':
+        introduced.append(event.introduced)
+        continue
+
+      if event.last_affected:
+        last_affected.append(event.last_affected)
+        continue
+
+      if event.fixed:
+        fixed.append(event.fixed)
+        continue
+
+      if event.limit:
+        limit.append(event.limit)
+        continue
     return (introduced, fixed, last_affected, limit)
 
   def get_message_by_commits_id(self, commits_id):
@@ -140,16 +139,16 @@ class TestRepository:
     parent = []
     self.add_commit(message="A", parents=parent)
 
-  def merge(self, commit, event: EventType = EventType.NONE):
+  def merge(self, commit, event_type: str = None):
     """merge a commit into the repository
 
     Args:
         commit (str): the hex of the commit to be merged
-        event (EventType, optional): the event associated with the commit.
-        Defaults to EventType.NONE.
+        event_type (str, optional): the event associated with the commit.
+        Defaults to None.
     """
     self.repo.merge(commit)
-    self.add_commit([self.get_head_hex(), commit], event)
+    self.add_commit([self.get_head_hex(), commit], event_type)
 
   def get_commit_ids(self, commit_messages):
     return self.commits_info.get_commit_ids(commit_messages)
@@ -157,15 +156,15 @@ class TestRepository:
   def add_commit(self,
                  message,
                  parents=None,
-                 event: EventType = EventType.NONE):
+                 event_type: str = None):
     """Add a commit to the repository
 
     Args:
         message (str): the message of the commit
         parents (List(str), optional): the list of parents
           of the current repository . Defaults to None.
-        event (EventType, optional): the type of event corresponding
-          to the commit. Defaults to EventType.NONE.
+        event (str, optional): the type of event corresponding
+          to the commit. Defaults to None.
 
     Returns:
         str: the hex id of the commit
@@ -181,7 +180,7 @@ class TestRepository:
     index.write()
     commit_hex = self.repo.create_commit('HEAD', self._author, self._commiter,
                                          message, tree, parents).hex
-    self.commits_info.add_commit(commit_hex, message, event)
+    self.commits_info.add_commit(commit_hex, message, event_type)
     return commit_hex
 
   def get_head_hex(self):
