@@ -140,7 +140,7 @@ class TestRepository:
     parent = []
     self.add_commit(message="A", parents=parent)
 
-  def merge(self, commit, event: EventType = EventType.NONE):
+  def merge(self,message, commit, event: EventType = EventType.NONE):
     """merge a commit into the repository
 
     Args:
@@ -149,7 +149,7 @@ class TestRepository:
         Defaults to EventType.NONE.
     """
     self.repo.merge(commit)
-    self.add_commit([self.get_head_hex(), commit], event)
+    self.add_commit(message,[self.get_head_hex(), commit], event)
 
   def get_commit_ids(self, commit_messages):
     return self.commits_info.get_commit_ids(commit_messages)

@@ -358,7 +358,7 @@ class GitImpactTest(unittest.TestCase):
     repo.checkout("main")
     b = repo.add_commit(
         message="B", parents=[repo.get_head_hex()], event=events["B"])
-    repo.add_commit(message="D", parents=[b, c], event=events["D"])
+    repo.merge(message="D", commit=c, event=events["D"])
     repo.add_commit(
         message="E", parents=[repo.get_head_hex()], event=events["E"])
     repo.create_remote_branch()
@@ -393,8 +393,7 @@ class GitImpactTest(unittest.TestCase):
         message="B", parents=[repo.get_head_hex()], event=events["B"])
     c = repo.add_commit(
         message="C", parents=[repo.get_head_hex()], event=events["C"])
-
-    repo.add_commit(message="E", parents=[c, d], event=events["E"])
+    repo.merge(message="E", commit=d, event=events["E"])
     repo.add_commit(
         message="F", parents=[repo.get_head_hex()], event=events["E"])
 
