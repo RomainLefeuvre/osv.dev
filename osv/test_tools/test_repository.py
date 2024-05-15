@@ -16,13 +16,11 @@ usage:
 import pygit2
 import json
 from datetime import datetime
-from enum import Enum
 import os
 import shutil
 import uuid
 import logging
 from osv import vulnerability_pb2
-
 
 
 class CommitInfo:
@@ -48,17 +46,25 @@ class CommitsInfo:
         return True
     return False
 
-  def add_commit(self,
-                 commit_id,
-                 commit_message,
-                 event_type:str=None):
+  def add_commit(self, commit_id, commit_message, event_type: str = None):
+    """Adds a commit to the repository
+
+    Args:
+        commit_id (str): The id of the commit
+        commit_message (str): The message of the commit
+        event_type (str, optional): the type of the event. Defaults to None.
+
+    Raises:
+        ValueError: In the case of an invalid vulnerability type
+    """
     if not self.existing_message(commit_message):
       if event_type:
-        if event_type not in vulnerability_pb2.Event.DESCRIPTOR.fields_by_name.keys():
+        keys = vulnerability_pb2.Event.DESCRIPTOR.fields_by_name.keys()
+        if event_type not in keys:
           raise ValueError("Invalid vulnerability type")
-        self.affected_range.events.append(vulnerability_pb2.Event(**{event_type: commit_id}))
-      self._commits.append(
-          CommitInfo(commit_id, commit_message))
+        self.affected_range.events.append(
+            vulnerability_pb2.Event(**{event_type: commit_id}))
+      self._commits.append(CommitInfo(commit_id, commit_message))
     else:
       raise ValueError("Commit message already exists")
 
@@ -139,7 +145,7 @@ class TestRepository:
     parent = []
     self.add_commit(message="A", parents=parent)
 
-  def merge(self,message, commit, event_type: str = None):
+  def merge(self, message, commit, event_type: str = None):
     """merge a commit into the repository
 
     Args:
@@ -148,15 +154,12 @@ class TestRepository:
         Defaults to None.
     """
     self.repo.merge(commit)
-    self.add_commit(message,[self.get_head_hex(), commit], event_type)
+    self.add_commit(message, [self.get_head_hex(), commit], event_type)
 
   def get_commit_ids(self, commit_messages):
     return self.commits_info.get_commit_ids(commit_messages)
 
-  def add_commit(self,
-                 message,
-                 parents=None,
-                 event_type: str = None):
+  def add_commit(self, message, parents=None, event_type: str = None):
     """Add a commit to the repository
 
     Args:

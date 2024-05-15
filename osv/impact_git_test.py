@@ -1,10 +1,10 @@
 """impact_git_test.py: Tests for the impact module using git repositories."""
 
 from .test_tools.test_repository import TestRepository
-from . import vulnerability_pb2
 
 import unittest
 from . import impact
+
 
 class GitImpactTest(unittest.TestCase):
   """Tests for the impact module using git repositories."""
@@ -13,29 +13,11 @@ class GitImpactTest(unittest.TestCase):
   def setUpClass(cls):
     cls.__repo_analyzer = impact.RepoAnalyzer(detect_cherrypicks=True)
 
-    """   def dummy_test(self):
-    events = {"introduced": "B", "fixed": "D"}
-    event_list:list[vulnerability_pb2.Event] = []
-    for event in events.items():
-      event_list.append(vulnerability_pb2.Event(**event))
-    event_is_none = True
-    for event in event_list:
-      for descriptor in vulnerability_pb2.Event.DESCRIPTOR.fields_by_name:
-        if getattr(event, descriptor) is not None:
-          event_is_none = False
-          break
-    self.assertTrue(True) 
-    """
-
-
   ######## 1st : tests with "introduced" and "fixed"
   def test_introduced_fixed_linear(self):
     """Simple range, only two commits are vulnerable. 
     Model : A->B->C->D """
-    events = {
-        "B": "introduced",
-        "D": "fixed"
-    }
+    events = {"B": "introduced", "D": "fixed"}
     expected_vulnerable = {"B", "C"}
     self.template_four_linear(events, expected_vulnerable,
                               "test_introduced_fixed_linear")
@@ -45,10 +27,7 @@ class GitImpactTest(unittest.TestCase):
     """Ensures the basic behavior of limit 
     (the limit commit is considered unaffected).
     Model : A->B->C->D """
-    events = {
-        "B": "introduced",
-        "D": "limit"
-    }
+    events = {"B": "introduced", "D": "limit"}
     expected_vulnerable = {"B", "C"}
     self.template_four_linear(events, expected_vulnerable,
                               "test_introduced_limit_linear")
@@ -58,10 +37,7 @@ class GitImpactTest(unittest.TestCase):
     """Ensures the basic behavior of last_affected 
     commits (the last_affected commit is considered affected).
     Model : A->B->C->D """
-    events = {
-        "B": "introduced",
-        "D": "last_affected"
-    }
+    events = {"B": "introduced", "D": "last_affected"}
     expected_vulnerable = {"B", "C", "D"}
     self.template_four_linear(events, expected_vulnerable,
                               "test_introduced_last_affected_linear")
@@ -70,11 +46,7 @@ class GitImpactTest(unittest.TestCase):
   def test_introduced_limit_fixed_linear_lf(self):
     """Ensures the behaviors of limit and fixed commits are not conflicting.
     Model : A->B->C->D """
-    events = {
-        "B": "introduced",
-        "C": "limit",
-        "D": "fixed"
-    }
+    events = {"B": "introduced", "C": "limit", "D": "fixed"}
     expected_vulnerable = {"B"}
     self.template_four_linear(events, expected_vulnerable,
                               "test_introduced_limit_fixed_linear_lf")
@@ -84,11 +56,7 @@ class GitImpactTest(unittest.TestCase):
   def test_introduced_limit_fixed_linear_fl(self):
     """Ensures the behaviors of limit and fixed commits are not conflicting.
     Model : A->B->C->D """
-    events = {
-        "B": "introduced",
-        "C": "fixed",
-        "D": "limit"
-    }
+    events = {"B": "introduced", "C": "fixed", "D": "limit"}
     expected_vulnerable = {"B"}
     self.template_four_linear(events, expected_vulnerable,
                               "test_introduced_limit_fixed_linear_fl")
@@ -145,10 +113,7 @@ class GitImpactTest(unittest.TestCase):
     vulnerability in the created branch . 
     Model :      A ->B-> D->E 
                   |->C-/^"""
-    events = {
-        "B": "introduced",
-        "E": "fixed"
-    }
+    events = {"B": "introduced", "E": "fixed"}
     expected_vulnerable = {"B", "D"}
     self.template_five_second_branch_merge(events, expected_vulnerable,
                                            "test_introduced_fixed_merge")
@@ -160,10 +125,7 @@ class GitImpactTest(unittest.TestCase):
     vulnerability in created branch with a limit commit. 
     Model :      A ->B-> D->E 
                   |->C-/^"""
-    events = {
-        "B": "introduced",
-        "E": "limit"
-    }
+    events = {"B": "introduced", "E": "limit"}
     expected_vulnerable = {"B", "D"}
     self.template_five_second_branch_merge(events, expected_vulnerable,
                                            "test_introduced_limit_merge")
@@ -175,10 +137,7 @@ class GitImpactTest(unittest.TestCase):
     in the created branch with a last-affected commit. 
     Model :      A ->B-> D->E 
                   |->C-/^"""
-    events = {
-        "B": "introduced",
-        "E": "limit"
-    }
+    events = {"B": "introduced", "E": "limit"}
     expected_vulnerable = {"B", "D"}
     self.template_five_second_branch_merge(
         events, expected_vulnerable, "test_introduced_last_affected_merge")
@@ -191,11 +150,7 @@ class GitImpactTest(unittest.TestCase):
     from the created branch to the main branch. 
     Model :      A ->B-> D->E 
                   |->C-/^"""
-    events = {
-        "B": "introduced",
-        "C": "fixed",
-        "E": "fixed"
-    }
+    events = {"B": "introduced", "C": "fixed", "E": "fixed"}
     expected_vulnerable = {"B"}
     self.template_five_second_branch_merge(
         events, expected_vulnerable,
@@ -207,12 +162,7 @@ class GitImpactTest(unittest.TestCase):
     """ Srange with two fixed, checking the non propagation of the 
     fix from the created branch to the main branch. 
     Model :      A->B->C->D->E """
-    events = {
-        "B": "introduced",
-        "C": "fixed",
-        "D": "introduced",
-        "E": "fixed"
-    }
+    events = {"B": "introduced", "C": "fixed", "D": "introduced", "E": "fixed"}
     expected_vulnerable = {"B", "D"}
     self.template_five_linear(events, expected_vulnerable,
                               "test_introduced_fixed_two_linear")
@@ -225,12 +175,7 @@ class GitImpactTest(unittest.TestCase):
     created branch to the main branch. 
     Model :          A->B->C->E-F 
                      |-> D -/^ """
-    events = {
-        "B": "introduced",
-        "C": "fixed",
-        "D": "introduced",
-        "F": "fixed"
-    }
+    events = {"B": "introduced", "C": "fixed", "D": "introduced", "F": "fixed"}
     expected_vulnerable = {"B", "D", "E"}
     self.template_six_second_branch_merge(
         events, expected_vulnerable, "test_introduced_fixed_merge_propagation")
@@ -242,26 +187,28 @@ class GitImpactTest(unittest.TestCase):
     """ range with. 
     Model :      A ->B-> C->E 
                      |-> D"""
-    events = {
-        "B": "introduced",
-        "D": "limit",
-        "E": "fixed"
-    }
+    events = {"B": "introduced", "D": "limit", "E": "fixed"}
     expected_vulnerable = {"B"}
     self.template_five_third_branch(events, expected_vulnerable,
                                     "test_introduced_limit_branch_limit")
 
   ###### Utility Template methods
-  def template_four_linear(self, events:dict, expected, name):
+  def template_four_linear(self, events: dict, expected, name):
     """Linear template with 4 commits  
     A->B->C->D """
     repo = TestRepository(name, debug=False)
     repo.add_commit(
-        message="B", parents=[repo.get_head_hex()], event_type=events.get("B",None))
+        message="B",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("B", None))
     repo.add_commit(
-        message="C", parents=[repo.get_head_hex()], event_type=events.get("C",None))
+        message="C",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("C", None))
     repo.add_commit(
-        message="D", parents=[repo.get_head_hex()], event_type=events.get("D",None))
+        message="D",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("D", None))
     repo.create_remote_branch()
 
     (all_introduced, all_fixed, all_last_affected,
@@ -284,13 +231,21 @@ class GitImpactTest(unittest.TestCase):
     A->B->C->D """
     repo = TestRepository(name, debug=False)
     repo.add_commit(
-        message="B", parents=[repo.get_head_hex()], event_type=events.get("B",None))
+        message="B",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("B", None))
     repo.add_commit(
-        message="C", parents=[repo.get_head_hex()], event_type=events.get("C",None))
+        message="C",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("C", None))
     repo.add_commit(
-        message="D", parents=[repo.get_head_hex()], event_type=events.get("D",None))
+        message="D",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("D", None))
     repo.add_commit(
-        message="E", parents=[repo.get_head_hex()], event_type=events.get("E",None))
+        message="E",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("E", None))
 
     repo.create_remote_branch()
 
@@ -317,14 +272,20 @@ class GitImpactTest(unittest.TestCase):
           |->E """
     repo = TestRepository(name, debug=False)
     repo.add_commit(
-        message="B", parents=[repo.get_head_hex()], event_type=events.get("B",None))
+        message="B",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("B", None))
     c = repo.add_commit(
-        message="C", parents=[repo.get_head_hex()], event_type=events.get("C",None))
+        message="C",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("C", None))
     repo.create_branch_if_needed_and_checkout("feature")
-    repo.add_commit(message="E", parents=[c], event_type=events.get("E",None))
+    repo.add_commit(message="E", parents=[c], event_type=events.get("E", None))
     repo.checkout("main")
     repo.add_commit(
-        message="D", parents=[repo.get_head_hex()], event_type=events.get("D",None))
+        message="D",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("D", None))
     repo.create_remote_branch()
 
     (all_introduced, all_fixed, all_last_affected,
@@ -351,13 +312,19 @@ class GitImpactTest(unittest.TestCase):
     repo = TestRepository(name, debug=False)
     repo.create_branch_if_needed_and_checkout("feature")
     c = repo.add_commit(
-        message="C", parents=[repo.get_head_hex()], event_type=events.get("C",None))
+        message="C",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("C", None))
     repo.checkout("main")
-    b = repo.add_commit(
-        message="B", parents=[repo.get_head_hex()], event_type=events.get("B",None))
-    repo.merge(message="D", commit=c, event_type=events.get("D",None))
     repo.add_commit(
-        message="E", parents=[repo.get_head_hex()], event_type=events.get("E",None))
+        message="B",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("B", None))
+    repo.merge(message="D", commit=c, event_type=events.get("D", None))
+    repo.add_commit(
+        message="E",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("E", None))
     repo.create_remote_branch()
 
     (all_introduced, all_fixed, all_last_affected,
@@ -384,15 +351,23 @@ class GitImpactTest(unittest.TestCase):
     repo = TestRepository(name, debug=False)
     repo.create_branch_if_needed_and_checkout("feature")
     d = repo.add_commit(
-        message="D", parents=[repo.get_head_hex()], event_type=events.get("D",None))
+        message="D",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("D", None))
     repo.checkout("main")
     repo.add_commit(
-        message="B", parents=[repo.get_head_hex()], event_type=events.get("B",None))
-    c = repo.add_commit(
-        message="C", parents=[repo.get_head_hex()], event_type=events.get("C",None))
-    repo.merge(message="E", commit=d, event_type=events.get("E",None))
+        message="B",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("B", None))
     repo.add_commit(
-        message="F", parents=[repo.get_head_hex()], event_type=events.get("F",None))
+        message="C",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("C", None))
+    repo.merge(message="E", commit=d, event_type=events.get("E", None))
+    repo.add_commit(
+        message="F",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("F", None))
 
     repo.create_remote_branch()
 
@@ -418,15 +393,23 @@ class GitImpactTest(unittest.TestCase):
        |->D"""
     repo = TestRepository(name, debug=False)
     repo.add_commit(
-        message="B", parents=[repo.get_head_hex()], event_type=events.get("B",None))
+        message="B",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("B", None))
     repo.create_branch_if_needed_and_checkout("feature")
     repo.add_commit(
-        message="D", parents=[repo.get_head_hex()], event_type=events.get("D",None))
+        message="D",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("D", None))
     repo.checkout("main")
     repo.add_commit(
-        message="C", parents=[repo.get_head_hex()], event_type=events.get("C",None))
+        message="C",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("C", None))
     repo.add_commit(
-        message="E", parents=[repo.get_head_hex()], event_type=events.get("E",None))
+        message="E",
+        parents=[repo.get_head_hex()],
+        event_type=events.get("E", None))
 
     repo.create_remote_branch()
     (all_introduced, all_fixed, all_last_affected,
