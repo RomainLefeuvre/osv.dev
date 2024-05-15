@@ -14,32 +14,35 @@ class GitImpactTest(unittest.TestCase):
     cls.__repo_analyzer = impact.RepoAnalyzer(detect_cherrypicks=False)
 
   def test_introduced_fixed_linear(self):
+    """Simple range, only two commits are vulnerable. 
+    Model : A->B->C->D """
     events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.FIXED}
     expected_vulnerable={"B","C"}
-    self.template_linear(events,expected_vulnerable)
+    self.template_four_linear(events,expected_vulnerable)
 
   def test_introduced_limit_linear(self):
     """Ensures the basic behavior of limit 
     (the limit commit is considered unaffected)."""
     events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.LIMIT}
     expected_vulnerable={"B","C"}
-    self.template_linear(events,expected_vulnerable)
+    self.template_four_linear(events,expected_vulnerable)
 
   def test_introduced_limit_fixed_linear_lf(self):
     """Ensures the behaviors of limit and fixed commits are not conflicting."""
     events={"B":EventType.INTRODUCED,"C":EventType.LIMIT,"D":EventType.FIXED}
     expected_vulnerable={"B"}
-    self.template_linear(events,expected_vulnerable)
+    self.template_four_linear(events,expected_vulnerable)
 
   def test_introduced_last_affected_linear(self):
     """Ensures the basic behavior of last_affected 
     commits (the las_affected commit is considered affected)."""
     events={"B":EventType.INTRODUCED,"C":EventType.NONE,"D":EventType.LAST_AFFECTED}
     expected_vulnerable={"B","C","D"}
-    self.template_linear(events,expected_vulnerable)
-
-  def template_linear(self,events,expected):
-    """Simple range, only two commits are vulnerable. """
+    self.template_four_linear(events,expected_vulnerable)
+  
+  def template_four_linear(self,events,expected):
+    """Linear template with 4 commits
+    A->B->C->D """
     repo = TestRepository("test_introduced_fixed_linear", debug=False)
     repo.add_commit(message="B", parents=[repo.get_head_hex()], event=events["B"])
     repo.add_commit(message="C", parents=[repo.get_head_hex()], event=events["C"])
