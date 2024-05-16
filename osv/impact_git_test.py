@@ -178,7 +178,8 @@ class GitImpactTest(unittest.TestCase):
     self.template_five_linear(events, expected_vulnerable,
                               "test_introduced_limit_two_linear")
 
-######## 15nd : linear tests with two "introduced" and two "last_affected" intercalated
+######## 15nd : linear tests with two "introduced" and
+# two "last_affected" intercalated
 
   def test_introduced_last_affected_two_linear(self):
     """ Srange with two fixed, checking the non propagation of the 
@@ -440,85 +441,3 @@ class GitImpactTest(unittest.TestCase):
         expected_commits,
         "Expected: %s, got: %s" % (expected, result_commit_message),
     )
-'''
-  
-  ######## 2nd : tests with "introduced" and "limit"
-
-  def test_introduced_limit_two_linear(self):
-    """Ensures that multiple introduced commit in
-    the same branch are correctly handled, wrt limit."""
-    repo = TestRepository("test_introduced_limit_two_linear", debug=False)
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit(
-        parents=[first], vulnerability=TestRepository.VulnerabilityType.LIMIT)
-    third = repo.add_empty_commit(
-        parents=[second],
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    repo.add_empty_commit(
-        parents=[third], vulnerability=TestRepository.VulnerabilityType.LIMIT)
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([first.hex, third.hex])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
-
-  ######## 3nd : tests with "introduced" and "last-affected"
-
- 
-
-    expected = set([first.hex, second.hex, third.hex])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
-
-  def test_introduced_last_affected_two_linear(self):
-    """Ensures that multiple introduced commit in 
-    the same branch are correctly handled, wrt last_affected."""
-    repo = TestRepository(
-        "test_introduced_last_affected_two_linear", debug=False)
-
-    first = repo.add_empty_commit(
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    second = repo.add_empty_commit(
-        parents=[first],
-        vulnerability=TestRepository.VulnerabilityType.LAST_AFFECTED,
-    )
-    third = repo.add_empty_commit(
-        parents=[second],
-        vulnerability=TestRepository.VulnerabilityType.INTRODUCED)
-    fourth = repo.add_empty_commit(
-        parents=[third],
-        vulnerability=TestRepository.VulnerabilityType.LAST_AFFECTED,
-    )
-
-    (all_introduced, all_fixed, all_last_affected,
-     all_limit) = repo.get_ranges()
-
-    result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
-                                               all_fixed, all_limit,
-                                               all_last_affected)
-
-    expected = set([first.hex, second.hex, third.hex, fourth.hex])
-    repo.remove()
-    self.assertEqual(
-        result.commits,
-        expected,
-        "Expected: %s, got: %s" % (expected, result.commits),
-    )
-
-
-    '''
