@@ -11,7 +11,7 @@ class GitImpactTest(unittest.TestCase):
 
   @classmethod
   def setUpClass(cls):
-    cls.__repo_analyzer = impact.RepoAnalyzer(detect_cherrypicks=True)
+    cls.__repo_analyzer = impact.RepoAnalyzer(detect_cherrypicks=False)
 
   ######## 1st : tests with "introduced" and "fixed"
   def test_introduced_fixed_linear(self):
@@ -61,7 +61,7 @@ class GitImpactTest(unittest.TestCase):
     self.template_four_linear(events, expected_vulnerable,
                               "test_introduced_limit_fixed_linear_fl")
 
-######## 6nd : branch tests with "introduced", "limit", and "fixed"
+######## 6nd : branch tests with "introduced", and "fixed"
 
   def test_introduced_fixed_branch_propagation(self):
     """Simple range, checking the propagation of the 
@@ -137,8 +137,8 @@ class GitImpactTest(unittest.TestCase):
     in the created branch with a last-affected commit. 
     Model :      A ->B-> D->E 
                   |->C-/^"""
-    events = {"B": "introduced", "E": "limit"}
-    expected_vulnerable = {"B", "D"}
+    events = {"B": "introduced", "E": "last_affected"}
+    expected_vulnerable = {"B", "D", "E"}
     self.template_five_second_branch_merge(
         events, expected_vulnerable, "test_introduced_last_affected_merge")
 
@@ -150,7 +150,7 @@ class GitImpactTest(unittest.TestCase):
     from the created branch to the main branch. 
     Model :      A ->B-> D->E 
                   |->C-/^"""
-    events = {"B": "introduced", "C": "fixed", "E": "fixed"}
+    events = {"B": "introduced", "C": "fixed"}
     expected_vulnerable = {"B"}
     self.template_five_second_branch_merge(
         events, expected_vulnerable,
@@ -167,21 +167,35 @@ class GitImpactTest(unittest.TestCase):
     self.template_five_linear(events, expected_vulnerable,
                               "test_introduced_fixed_two_linear")
 
-######## 14nd : merge tests with one "introduced" in main,
-# one "fixed" in the created branch, and one "fixed" in the main branch
+######## 14nd : linear tests with two "introduced" and two "limit" intercalated
 
-  def test_introduced_fixed_merge_propagation(self):
-    """ range with two fixed, checking the non propagation of the fix from the 
-    created branch to the main branch. 
-    Model :          A->B->C->E-F 
-                     |-> D -/^ """
-    events = {"B": "introduced", "C": "fixed", "D": "introduced", "F": "fixed"}
-    expected_vulnerable = {"B", "D", "E"}
-    self.template_six_second_branch_merge(
-        events, expected_vulnerable, "test_introduced_fixed_merge_propagation")
+  def test_introduced_limit_two_linear(self):
+    """ Srange with two fixed, checking the non propagation of the 
+    fix from the created branch to the main branch. 
+    Model :      A->B->C->D->E """
+    events = {"B": "introduced", "C": "limit", "D": "introduced", "E": "limit"}
+    expected_vulnerable = {"B", "D"}
+    self.template_five_linear(events, expected_vulnerable,
+                              "test_introduced_limit_two_linear")
+
+######## 15nd : linear tests with two "introduced" and two "last_affected" intercalated
+
+  def test_introduced_last_affected_two_linear(self):
+    """ Srange with two fixed, checking the non propagation of the 
+    fix from the created branch to the main branch. 
+    Model :      A->B->C->D->E """
+    events = {
+        "B": "introduced",
+        "C": "last_affected",
+        "D": "introduced",
+        "E": "last_affected"
+    }
+    expected_vulnerable = {"C", "E", "B", "D"}
+    self.template_five_linear(events, expected_vulnerable,
+                              "test_introduced_last_affected_two_linear")
 
 
-######## 15nd : testing the behavior of limit with a branch
+######## 16nd : testing the behavior of limit with a branch
 
   def test_introduced_limit_branch_limit(self):
     """ range with. 
@@ -213,7 +227,7 @@ class GitImpactTest(unittest.TestCase):
 
     (all_introduced, all_fixed, all_last_affected,
      all_limit) = repo.get_ranges()
-    expected_commits = repo.get_commit_ids(expected)
+    expected_commits = repo.get_commits_ids(expected)
 
     result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
                                                all_fixed, all_limit,
@@ -252,7 +266,7 @@ class GitImpactTest(unittest.TestCase):
     (all_introduced, all_fixed, all_last_affected,
      all_limit) = repo.get_ranges()
 
-    expected_commits = repo.get_commit_ids(expected)
+    expected_commits = repo.get_commits_ids(expected)
 
     result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
                                                all_fixed, all_limit,
@@ -290,7 +304,7 @@ class GitImpactTest(unittest.TestCase):
 
     (all_introduced, all_fixed, all_last_affected,
      all_limit) = repo.get_ranges()
-    expected_commits = repo.get_commit_ids(expected)
+    expected_commits = repo.get_commits_ids(expected)
 
     result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
                                                all_fixed, all_limit,
@@ -329,7 +343,7 @@ class GitImpactTest(unittest.TestCase):
 
     (all_introduced, all_fixed, all_last_affected,
      all_limit) = repo.get_ranges()
-    expected_commits = repo.get_commit_ids(expected)
+    expected_commits = repo.get_commits_ids(expected)
 
     result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
                                                all_fixed, all_limit,
@@ -373,7 +387,7 @@ class GitImpactTest(unittest.TestCase):
 
     (all_introduced, all_fixed, all_last_affected,
      all_limit) = repo.get_ranges()
-    expected_commits = repo.get_commit_ids(expected)
+    expected_commits = repo.get_commits_ids(expected)
 
     result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
                                                all_fixed, all_limit,
@@ -414,7 +428,7 @@ class GitImpactTest(unittest.TestCase):
     repo.create_remote_branch()
     (all_introduced, all_fixed, all_last_affected,
      all_limit) = repo.get_ranges()
-    expected_commits = repo.get_commit_ids(expected)
+    expected_commits = repo.get_commits_ids(expected)
 
     result = self.__repo_analyzer.get_affected(repo.repo, all_introduced,
                                                all_fixed, all_limit,

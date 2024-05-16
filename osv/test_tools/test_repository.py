@@ -23,28 +23,50 @@ import logging
 from osv import vulnerability_pb2
 
 
-class CommitInfo:
-  """Single commit information
-  """
-
-  def __init__(self, commit_id: str, commit_message: str):
-    self.commit_id: str = commit_id
-    self.commit_message: str = commit_message
-
-
 class CommitsInfo:
   """Internal class to store the commits information
   """
 
-  def __init__(self):
-    self._commits: list[CommitInfo] = []
-    self.affected_range: vulnerability_pb2.Range = vulnerability_pb2.Range()
+  class Messages:
+    """Single commit information
+    """
 
-  def existing_message(self, message):
-    for commit in self._commits:
-      if commit.commit_message == message:
-        return True
-    return False
+    def __init__(self):
+      self._commit_to_message: dict[str, str] = {}
+      self._message_to_commit: dict[str, str] = {}
+
+    def add_commit(self, commit_id, commit_message):
+      self._commit_to_message[commit_id] = commit_message
+      self._message_to_commit[commit_message] = commit_id
+
+    def get_message(self, commit_id):
+      return self._commit_to_message.get(commit_id)
+
+    def get_commit_id(self, commit_message):
+      return self._message_to_commit.get(commit_message)
+
+    def get_commits_ids(self, commit_messages):
+      commit_ids = set()
+      for commit_message in commit_messages:
+        commit_id = self.get_commit_id(commit_message)
+        if commit_id is not None:
+          commit_ids.add(commit_id)
+      return commit_ids
+
+    def get_messages(self, commits_id):
+      commit_messages = set()
+      for commit_id in commits_id:
+        commit_message = self.get_message(commit_id)
+        if commit_message is not None:
+          commit_messages.add(commit_message)
+      return commit_messages
+
+    def existing_message(self, message):
+      return message in self._message_to_commit
+
+  def __init__(self):
+    self.messages: CommitsInfo.Messages = CommitsInfo.Messages()
+    self._events: list[vulnerability_pb2.Event] = []
 
   def add_commit(self, commit_id, commit_message, event_type: str = None):
     """Adds a commit to the repository
@@ -57,30 +79,15 @@ class CommitsInfo:
     Raises:
         ValueError: In the case of an invalid vulnerability type
     """
-    if not self.existing_message(commit_message):
+    if not self.messages.existing_message(commit_message):
       if event_type:
         keys = vulnerability_pb2.Event.DESCRIPTOR.fields_by_name.keys()
         if event_type not in keys:
           raise ValueError("Invalid vulnerability type")
-        self.affected_range.events.append(
-            vulnerability_pb2.Event(**{event_type: commit_id}))
-      self._commits.append(CommitInfo(commit_id, commit_message))
+        self._events.append(vulnerability_pb2.Event(**{event_type: commit_id}))
+      self.messages.add_commit(commit_id, commit_message)
     else:
       raise ValueError("Commit message already exists")
-
-  def get_commit_id_by_message(self, message):
-    for commit in self._commits:
-      if commit.commit_message == message:
-        return commit.commit_id
-    return None
-
-  def get_commit_ids(self, commit_messages):
-    commit_ids = set()
-    for commit_message in commit_messages:
-      commit_id = self.get_commit_id_by_message(commit_message)
-      if commit_id is not None:
-        commit_ids.add(commit_id)
-    return commit_ids
 
   def get_ranges(self):
     """get the ranges of the repository, 
@@ -97,7 +104,7 @@ class CommitsInfo:
     fixed = []
     last_affected = []
     limit = []
-    for event in self.affected_range.events:
+    for event in self._events:
       if event.introduced and event.introduced != '0':
         introduced.append(event.introduced)
         continue
@@ -114,13 +121,6 @@ class CommitsInfo:
         limit.append(event.limit)
         continue
     return (introduced, fixed, last_affected, limit)
-
-  def get_message_by_commits_id(self, commits_id):
-    commit_messages: set[str] = set()
-    for commit in self._commits:
-      if commit.commit_id in commits_id:
-        commit_messages.add(commit.commit_message)
-    return commit_messages
 
 
 class TestRepository:
@@ -156,8 +156,8 @@ class TestRepository:
     self.repo.merge(commit)
     self.add_commit(message, [self.get_head_hex(), commit], event_type)
 
-  def get_commit_ids(self, commit_messages):
-    return self.commits_info.get_commit_ids(commit_messages)
+  def get_commits_ids(self, commit_messages):
+    return self.commits_info.messages.get_commits_ids(commit_messages)
 
   def add_commit(self, message, parents=None, event_type: str = None):
     """Add a commit to the repository
@@ -223,7 +223,7 @@ class TestRepository:
     return self.commits_info.get_ranges()
 
   def get_message_by_commits_id(self, commits_id):
-    return self.commits_info.get_message_by_commits_id(commits_id)
+    return self.commits_info.messages.get_messages(commits_id)
 
   def print_commits(self):
     """ prints the commits of the repository
